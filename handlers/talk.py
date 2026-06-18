@@ -6,6 +6,7 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, FSInputFile, Message
+from aiogram.utils.chat_action import ChatActionSender
 
 from keyboards.talk import (
     TALK_BUTTON_TEXT,
@@ -13,7 +14,9 @@ from keyboards.talk import (
     get_talk_keyboard,
 )
 from prompts import TALK_PERSONALITIES
+from services.openai_service import OpenAIService, OpenAIServiceError
 from states.talk import TalkStates
+from utils.messages import split_message
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +24,7 @@ router = Router(name=__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TALK_IMAGE_PATH = PROJECT_ROOT / "assets" / "talk.png"
+HISTORY_LIMIT = 12
 
 
 async def start_talk_mode(message: Message, state: FSMContext) -> None:
@@ -89,7 +93,7 @@ async def handle_personality_choice(
         )
 
 
-@router.callback_query(F.data == "talk:change")
+@router.callback_query(TalkStates.chatting, F.data == "talk:change")
 async def handle_personality_change(
     callback: CallbackQuery,
     state: FSMContext,
@@ -103,3 +107,86 @@ async def handle_personality_change(
             "Выберите новую личность.",
             reply_markup=get_personality_keyboard(),
         )
+
+
+@router.message(
+    TalkStates.chatting,
+    F.text,
+    ~F.text.startswith("/"),
+)
+async def handle_talk_message(
+    message: Message,
+    state: FSMContext,
+    openai_service: OpenAIService,
+) -> None:
+    user_text = message.text
+    if not user_text:
+        return
+
+    data = await state.get_data()
+    system_prompt = data.get("system_prompt")
+    history: list[dict[str, str]] = data.get("history", [])
+
+    if not isinstance(system_prompt, str):
+        await state.clear()
+        await state.set_state(TalkStates.choosing_person)
+        await message.answer(
+            "Сначала выберите личность с помощью кнопок.",
+            reply_markup=get_personality_keyboard(),
+        )
+        return
+
+    request_messages = [
+        {"role": "system", "content": system_prompt},
+        *history,
+        {"role": "user", "content": user_text},
+    ]
+
+    try:
+        async with ChatActionSender.typing(
+            bot=message.bot,
+            chat_id=message.chat.id,
+        ):
+            answer = await openai_service.chat(request_messages)
+    except OpenAIServiceError:
+        await message.answer(
+            "Не удалось получить ответ. Попробуйте отправить сообщение ещё "
+            "раз немного позже.",
+            reply_markup=get_talk_keyboard(),
+        )
+        return
+
+    updated_history = [
+        *history,
+        {"role": "user", "content": user_text},
+        {"role": "assistant", "content": answer},
+    ][-HISTORY_LIMIT:]
+    await state.update_data(history=updated_history)
+
+    answer_parts = split_message(answer)
+    for index, part in enumerate(answer_parts):
+        is_last_part = index == len(answer_parts) - 1
+        await message.answer(
+            part,
+            reply_markup=get_talk_keyboard() if is_last_part else None,
+        )
+
+
+@router.message(TalkStates.chatting, ~F.text)
+async def handle_talk_non_text(message: Message) -> None:
+    await message.answer(
+        "В этом режиме отправьте текстовое сообщение.",
+        reply_markup=get_talk_keyboard(),
+    )
+
+
+@router.message(
+    TalkStates.choosing_person,
+    F.text,
+    ~F.text.startswith("/"),
+)
+async def handle_message_before_personality(message: Message) -> None:
+    await message.answer(
+        "Сначала выберите личность с помощью кнопок.",
+        reply_markup=get_personality_keyboard(),
+    )
