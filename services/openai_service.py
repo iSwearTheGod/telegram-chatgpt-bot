@@ -20,13 +20,20 @@ class OpenAIService:
         system_prompt: str,
         user_prompt: str,
     ) -> str:
+        return await self.chat(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+        )
+
+    async def chat(self, messages: list[dict[str, str]]) -> str:
+        request_messages = [message.copy() for message in messages]
+
         try:
             response = await self._client.chat.completions.create(
                 model=self._model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages=request_messages,
             )
         except OpenAIError as error:
             logger.error(
