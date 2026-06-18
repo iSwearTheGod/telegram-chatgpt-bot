@@ -1,0 +1,28 @@
+# Secrets
+.env
+.env.*
+!.env.example
+openai-token.txt
+*-token.txt
+*.key
+
+# Virtual environments
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# PyCharm
+.idea/
+
+# Logs
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db
