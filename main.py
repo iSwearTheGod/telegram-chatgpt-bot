@@ -7,6 +7,7 @@ from aiogram.types import BotCommand
 
 from config import load_config
 from handlers.common import router as common_router
+from handlers.gpt_chat import router as gpt_chat_router
 from handlers.random_fact import router as random_fact_router
 from services.openai_service import OpenAIService
 
@@ -16,6 +17,7 @@ async def set_bot_commands(bot: Bot) -> None:
         BotCommand(command="start", description="Открыть главное меню"),
         BotCommand(command="help", description="Помощь по командам"),
         BotCommand(command="random", description="Получить случайный факт"),
+        BotCommand(command="gpt", description="Задать вопрос ChatGPT"),
     ]
     await bot.set_my_commands(commands)
 
@@ -28,6 +30,7 @@ async def main() -> None:
         api_key=config.openai_api_key,
         model=config.openai_model,
     )
+    dispatcher.include_router(gpt_chat_router)
     dispatcher.include_router(random_fact_router)
     dispatcher.include_router(common_router)
 

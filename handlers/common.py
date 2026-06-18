@@ -38,7 +38,9 @@ async def handle_help(message: Message) -> None:
     await message.answer(
         "Доступные команды:\n"
         "/start — открыть главное меню\n"
-        "/help — показать эту справку\n\n"
+        "/help — показать эту справку\n"
+        "/random — получить случайный факт\n"
+        "/gpt — задать вопрос ChatGPT\n\n"
         "Новые функции добавляются постепенно.",
         reply_markup=main_menu,
     )
