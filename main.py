@@ -7,6 +7,7 @@ from aiogram.types import BotCommand
 
 from config import load_config
 from handlers.common import router as common_router
+from services.openai_service import OpenAIService
 
 
 async def set_bot_commands(bot: Bot) -> None:
@@ -21,6 +22,10 @@ async def main() -> None:
     config = load_config()
     bot = Bot(token=config.telegram_bot_token)
     dispatcher = Dispatcher(storage=MemoryStorage())
+    dispatcher["openai_service"] = OpenAIService(
+        api_key=config.openai_api_key,
+        model=config.openai_model,
+    )
     dispatcher.include_router(common_router)
 
     try:
