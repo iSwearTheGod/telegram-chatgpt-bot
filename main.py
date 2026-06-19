@@ -8,6 +8,7 @@ from aiogram.types import BotCommand
 from config import load_config
 from handlers.common import router as common_router
 from handlers.gpt_chat import router as gpt_chat_router
+from handlers.quiz import router as quiz_router
 from handlers.random_fact import router as random_fact_router
 from handlers.talk import router as talk_router
 from services.openai_service import OpenAIService
@@ -23,6 +24,7 @@ async def set_bot_commands(bot: Bot) -> None:
             command="talk",
             description="Поговорить с известной личностью",
         ),
+        BotCommand(command="quiz", description="Начать квиз"),
     ]
     await bot.set_my_commands(commands)
 
@@ -35,6 +37,7 @@ async def main() -> None:
         api_key=config.openai_api_key,
         model=config.openai_model,
     )
+    dispatcher.include_router(quiz_router)
     dispatcher.include_router(talk_router)
     dispatcher.include_router(gpt_chat_router)
     dispatcher.include_router(random_fact_router)

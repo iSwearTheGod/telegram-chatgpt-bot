@@ -41,7 +41,8 @@ async def handle_help(message: Message) -> None:
         "/help — показать эту справку\n"
         "/random — получить случайный факт\n"
         "/gpt — задать вопрос ChatGPT\n"
-        "/talk — поговорить с известной личностью\n\n"
+        "/talk — поговорить с известной личностью\n"
+        "/quiz — начать квиз\n\n"
         "Новые функции добавляются постепенно.",
         reply_markup=main_menu,
     )
