@@ -1,5 +1,6 @@
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
+from keyboards.quiz import QUIZ_BUTTON_TEXT
 from keyboards.talk import TALK_BUTTON_TEXT
 
 
@@ -10,13 +11,13 @@ MENU_BUTTON_TEXTS = (
     RANDOM_FACT_BUTTON_TEXT,
     GPT_CHAT_BUTTON_TEXT,
     TALK_BUTTON_TEXT,
-    "🧠 Квиз",
+    QUIZ_BUTTON_TEXT,
     "🌐 Переводчик",
     "📄 Помощь с резюме",
     "🖼 Распознать изображение",
 )
 
-UNAVAILABLE_MENU_BUTTON_TEXTS = MENU_BUTTON_TEXTS[3:]
+UNAVAILABLE_MENU_BUTTON_TEXTS = MENU_BUTTON_TEXTS[4:]
 
 main_menu = ReplyKeyboardMarkup(
     keyboard=[

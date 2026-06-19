@@ -1,3 +1,4 @@
+import json
 import logging
 
 from openai import AsyncOpenAI, OpenAIError
@@ -52,3 +53,55 @@ class OpenAIService:
             raise OpenAIServiceError("OpenAI вернул пустой ответ.")
 
         return content.strip()
+
+    async def chat_json(
+        self,
+        messages: list[dict[str, str]],
+    ) -> dict[str, object]:
+        request_messages = [message.copy() for message in messages]
+
+        try:
+            response = await self._client.chat.completions.create(
+                model=self._model,
+                messages=request_messages,
+                response_format={"type": "json_object"},
+            )
+        except OpenAIError as error:
+            logger.error(
+                "Ошибка JSON-запроса к OpenAI: %s",
+                type(error).__name__,
+            )
+            raise OpenAIServiceError(
+                "Не удалось получить JSON-ответ от OpenAI."
+            ) from error
+
+        if not response.choices:
+            raise OpenAIServiceError("OpenAI вернул ответ без вариантов.")
+
+        content = response.choices[0].message.content
+        if not content or not content.strip():
+            raise OpenAIServiceError("OpenAI вернул пустой ответ.")
+
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as error:
+            logger.error(
+                "OpenAI вернул некорректный JSON: %s",
+                type(error).__name__,
+            )
+            raise OpenAIServiceError(
+                "OpenAI вернул некорректный JSON."
+            ) from error
+
+        required_fields = ("question", "correct_answer", "explanation")
+        if not isinstance(data, dict) or any(
+            not isinstance(data.get(field), str)
+            or not data[field].strip()
+            for field in required_fields
+        ):
+            logger.error("JSON-ответ OpenAI не соответствует структуре квиза.")
+            raise OpenAIServiceError(
+                "JSON-ответ OpenAI не соответствует ожидаемой структуре."
+            )
+
+        return data
