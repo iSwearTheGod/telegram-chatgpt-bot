@@ -12,6 +12,7 @@ from aiogram.utils.chat_action import ChatActionSender
 from keyboards.quiz import (
     QUIZ_BUTTON_TEXT,
     get_quiz_exit_keyboard,
+    get_quiz_result_keyboard,
     get_quiz_topics_keyboard,
 )
 from prompts import (
@@ -58,6 +59,31 @@ def validate_answer_check(data: dict[str, object]) -> tuple[bool, str]:
         raise OpenAIServiceError("Пустой комментарий к ответу.")
 
     return is_correct, feedback
+
+
+async def request_quiz_question(
+    message: Message,
+    openai_service: OpenAIService,
+    topic: dict[str, str],
+) -> dict[str, str]:
+    async with ChatActionSender.typing(
+        bot=message.bot,
+        chat_id=message.chat.id,
+    ):
+        return validate_question_data(
+            await openai_service.chat_json(
+                [
+                    {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": build_quiz_prompt(
+                            topic["name"],
+                            topic["description"],
+                        ),
+                    },
+                ]
+            )
+        )
 
 
 async def start_quiz(message: Message, state: FSMContext) -> None:
@@ -124,24 +150,11 @@ async def handle_quiz_topic(
         return
 
     try:
-        async with ChatActionSender.typing(
-            bot=callback.bot,
-            chat_id=callback.message.chat.id,
-        ):
-            question_data = validate_question_data(
-                await openai_service.chat_json(
-                    [
-                        {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
-                        {
-                            "role": "user",
-                            "content": build_quiz_prompt(
-                                topic["name"],
-                                topic["description"],
-                            ),
-                        },
-                    ]
-                )
-            )
+        question_data = await request_quiz_question(
+            callback.message,
+            openai_service,
+            topic,
+        )
     except OpenAIServiceError:
         await callback.message.answer(
             "Не удалось подготовить вопрос. Попробуйте выбрать тему ещё раз "
@@ -277,7 +290,7 @@ async def handle_quiz_answer(
 
     await message.answer(
         result_text,
-        reply_markup=get_quiz_exit_keyboard(),
+        reply_markup=get_quiz_result_keyboard(),
     )
 
 
@@ -296,6 +309,89 @@ async def handle_quiz_non_text_answer(message: Message) -> None:
 )
 async def handle_text_after_quiz_result(message: Message) -> None:
     await message.answer(
-        "Ответ уже проверен. Завершите квиз или дождитесь следующих действий.",
+        "Выберите дальнейшее действие с помощью кнопок.",
+        reply_markup=get_quiz_result_keyboard(),
+    )
+
+
+@router.message(QuizStates.viewing_result, ~F.text)
+async def handle_non_text_after_quiz_result(message: Message) -> None:
+    await message.answer(
+        "Выберите дальнейшее действие с помощью кнопок.",
+        reply_markup=get_quiz_result_keyboard(),
+    )
+
+
+@router.callback_query(QuizStates.viewing_result, F.data == "quiz:again")
+async def handle_quiz_again(
+    callback: CallbackQuery,
+    state: FSMContext,
+    openai_service: OpenAIService,
+) -> None:
+    await callback.answer()
+    if not isinstance(callback.message, Message):
+        return
+
+    data = await state.get_data()
+    topic_id = data.get("topic_id")
+    topic = QUIZ_TOPICS.get(topic_id) if isinstance(topic_id, str) else None
+    if topic is None:
+        await callback.message.answer(
+            "Не удалось определить тему. Выберите её заново.",
+            reply_markup=get_quiz_result_keyboard(),
+        )
+        return
+
+    try:
+        question_data = await request_quiz_question(
+            callback.message,
+            openai_service,
+            topic,
+        )
+    except OpenAIServiceError:
+        await callback.message.answer(
+            "Не удалось подготовить вопрос. Попробуйте ещё раз немного позже.",
+            reply_markup=get_quiz_result_keyboard(),
+        )
+        return
+
+    await state.update_data(
+        question=question_data["question"],
+        correct_answer=question_data["correct_answer"],
+        explanation=question_data["explanation"],
+    )
+    await state.set_state(QuizStates.waiting_for_answer)
+
+    await callback.message.answer(
+        f"{question_data['question']}\n\n"
+        "Следующее текстовое сообщение будет считаться ответом.",
         reply_markup=get_quiz_exit_keyboard(),
     )
+
+
+@router.callback_query(
+    QuizStates.viewing_result,
+    F.data == "quiz:change_topic",
+)
+async def handle_quiz_topic_change(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    await callback.answer()
+    data = await state.get_data()
+    score = int(data.get("score", 0))
+    questions_count = int(data.get("questions_count", 0))
+
+    await state.clear()
+    await state.update_data(
+        score=score,
+        questions_count=questions_count,
+    )
+    await state.set_state(QuizStates.choosing_topic)
+
+    if isinstance(callback.message, Message):
+        await callback.message.answer(
+            "Выберите новую тему.\n\n"
+            f"Текущий счёт: {score}/{questions_count}",
+            reply_markup=get_quiz_topics_keyboard(),
+        )

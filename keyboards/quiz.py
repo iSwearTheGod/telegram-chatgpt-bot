@@ -48,3 +48,26 @@ def get_quiz_exit_keyboard() -> InlineKeyboardMarkup:
             ]
         ]
     )
+
+
+def get_quiz_result_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Ещё вопрос",
+                    callback_data="quiz:again",
+                ),
+                InlineKeyboardButton(
+                    text="Сменить тему",
+                    callback_data="quiz:change_topic",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Закончить",
+                    callback_data="common:finish",
+                )
+            ],
+        ]
+    )
