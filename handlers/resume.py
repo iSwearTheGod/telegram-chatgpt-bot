@@ -5,10 +5,18 @@ from aiogram import F, Router
 from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile, Message
+from aiogram.types import CallbackQuery, FSInputFile, Message
+from aiogram.utils.chat_action import ChatActionSender
 
-from keyboards.resume import RESUME_BUTTON_TEXT, get_resume_exit_keyboard
+from keyboards.resume import (
+    RESUME_BUTTON_TEXT,
+    get_resume_exit_keyboard,
+    get_resume_result_keyboard,
+)
+from prompts import RESUME_SYSTEM_PROMPT, build_resume_user_prompt
+from services.openai_service import OpenAIService, OpenAIServiceError
 from states.resume import ResumeStates
+from utils.messages import split_message
 
 
 logger = logging.getLogger(__name__)
@@ -100,6 +108,106 @@ async def handle_resume_experience(
     await message.answer(
         SKILLS_PROMPT,
         reply_markup=get_resume_exit_keyboard(),
+    )
+
+
+@router.message(
+    ResumeStates.waiting_for_skills,
+    F.text,
+    ~F.text.startswith("/"),
+)
+async def handle_resume_skills(
+    message: Message,
+    state: FSMContext,
+    openai_service: OpenAIService,
+) -> None:
+    skills = message.text
+    if not skills or not skills.strip():
+        await send_empty_message_error(message)
+        return
+
+    await state.update_data(skills=skills.strip())
+    data = await state.get_data()
+    education = data.get("education")
+    experience = data.get("experience")
+    saved_skills = data.get("skills")
+
+    if not all(
+        isinstance(value, str) and value.strip()
+        for value in (education, experience, saved_skills)
+    ):
+        logger.error("В FSM отсутствуют данные для генерации резюме.")
+        await state.clear()
+        await message.answer(
+            "Не удалось восстановить введённые данные. Запустите создание "
+            "резюме заново командой /resume."
+        )
+        return
+
+    try:
+        async with ChatActionSender.typing(
+            bot=message.bot,
+            chat_id=message.chat.id,
+        ):
+            resume_text = await openai_service.generate_text(
+                system_prompt=RESUME_SYSTEM_PROMPT,
+                user_prompt=build_resume_user_prompt(
+                    education,
+                    experience,
+                    saved_skills,
+                ),
+            )
+    except OpenAIServiceError:
+        await message.answer(
+            "Не удалось создать резюме. Попробуйте отправить список навыков "
+            "ещё раз немного позже.",
+            reply_markup=get_resume_exit_keyboard(),
+        )
+        return
+
+    await state.clear()
+    await state.set_state(ResumeStates.viewing_result)
+
+    resume_parts = split_message(resume_text)
+    for index, part in enumerate(resume_parts):
+        is_last_part = index == len(resume_parts) - 1
+        await message.answer(
+            part,
+            reply_markup=(
+                get_resume_result_keyboard() if is_last_part else None
+            ),
+        )
+
+
+@router.callback_query(
+    ResumeStates.viewing_result,
+    F.data == "resume:restart",
+)
+async def handle_resume_restart(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    await callback.answer()
+    await state.clear()
+    await state.set_state(ResumeStates.waiting_for_education)
+
+    if isinstance(callback.message, Message):
+        await callback.message.answer(
+            EDUCATION_PROMPT,
+            reply_markup=get_resume_exit_keyboard(),
+        )
+
+
+@router.message(
+    ResumeStates.viewing_result,
+    F.text,
+    ~F.text.startswith("/"),
+)
+@router.message(ResumeStates.viewing_result, ~F.text)
+async def handle_resume_result_message(message: Message) -> None:
+    await message.answer(
+        "Нажмите «Создать заново» или «Закончить».",
+        reply_markup=get_resume_result_keyboard(),
     )
 
 
