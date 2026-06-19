@@ -6,14 +6,18 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, FSInputFile, Message
+from aiogram.utils.chat_action import ChatActionSender
 
 from keyboards.translator import (
     TRANSLATOR_BUTTON_TEXT,
     get_translator_actions_keyboard,
     get_translator_languages_keyboard,
 )
+from prompts import build_translation_system_prompt
+from services.openai_service import OpenAIService, OpenAIServiceError
 from states.translator import TranslatorStates
 from translator_data import TRANSLATION_LANGUAGES
+from utils.messages import split_message
 
 
 logger = logging.getLogger(__name__)
@@ -97,3 +101,94 @@ async def handle_text_before_language(message: Message) -> None:
         "Сначала выберите язык с помощью кнопок.",
         reply_markup=get_translator_languages_keyboard(),
     )
+
+
+@router.message(
+    TranslatorStates.waiting_for_text,
+    F.text,
+    ~F.text.startswith("/"),
+)
+async def handle_translation_text(
+    message: Message,
+    state: FSMContext,
+    openai_service: OpenAIService,
+) -> None:
+    source_text = message.text
+    if not source_text or not source_text.strip():
+        await message.answer(
+            "Отправьте непустой текст для перевода.",
+            reply_markup=get_translator_actions_keyboard(),
+        )
+        return
+
+    data = await state.get_data()
+    language_id = data.get("language_id")
+    language = (
+        TRANSLATION_LANGUAGES.get(language_id)
+        if isinstance(language_id, str)
+        else None
+    )
+    if language is None:
+        await state.clear()
+        await state.set_state(TranslatorStates.choosing_language)
+        await message.answer(
+            "Сначала выберите язык с помощью кнопок.",
+            reply_markup=get_translator_languages_keyboard(),
+        )
+        return
+
+    try:
+        async with ChatActionSender.typing(
+            bot=message.bot,
+            chat_id=message.chat.id,
+        ):
+            translation = await openai_service.generate_text(
+                system_prompt=build_translation_system_prompt(
+                    language["prompt_name"]
+                ),
+                user_prompt=source_text,
+            )
+    except OpenAIServiceError:
+        await message.answer(
+            "Не удалось выполнить перевод. Попробуйте отправить текст ещё "
+            "раз немного позже.",
+            reply_markup=get_translator_actions_keyboard(),
+        )
+        return
+
+    translation_parts = split_message(translation)
+    for index, part in enumerate(translation_parts):
+        is_last_part = index == len(translation_parts) - 1
+        await message.answer(
+            part,
+            reply_markup=(
+                get_translator_actions_keyboard() if is_last_part else None
+            ),
+        )
+
+
+@router.message(TranslatorStates.waiting_for_text, ~F.text)
+async def handle_translation_non_text(message: Message) -> None:
+    await message.answer(
+        "В этом режиме отправьте текстовое сообщение.",
+        reply_markup=get_translator_actions_keyboard(),
+    )
+
+
+@router.callback_query(
+    TranslatorStates.waiting_for_text,
+    F.data == "translate:change_language",
+)
+async def handle_translation_language_change(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    await callback.answer()
+    await state.clear()
+    await state.set_state(TranslatorStates.choosing_language)
+
+    if isinstance(callback.message, Message):
+        await callback.message.answer(
+            "Выберите новый язык перевода.",
+            reply_markup=get_translator_languages_keyboard(),
+        )
