@@ -14,7 +14,12 @@ from keyboards.quiz import (
     get_quiz_exit_keyboard,
     get_quiz_topics_keyboard,
 )
-from prompts import QUIZ_SYSTEM_PROMPT, build_quiz_prompt
+from prompts import (
+    QUIZ_ANSWER_CHECK_SYSTEM_PROMPT,
+    QUIZ_SYSTEM_PROMPT,
+    build_quiz_answer_check_prompt,
+    build_quiz_prompt,
+)
 from quiz_data import QUIZ_TOPICS
 from services.openai_service import OpenAIService, OpenAIServiceError
 from states.quiz import QuizStates
@@ -25,6 +30,34 @@ router = Router(name=__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 QUIZ_IMAGE_PATH = PROJECT_ROOT / "assets" / "quiz.png"
+
+
+def validate_question_data(data: dict[str, object]) -> dict[str, str]:
+    fields = ("question", "correct_answer", "explanation")
+    if any(
+        not isinstance(data.get(field), str)
+        or not cast(str, data[field]).strip()
+        for field in fields
+    ):
+        logger.error("JSON-ответ OpenAI не соответствует структуре вопроса.")
+        raise OpenAIServiceError("Некорректная структура вопроса.")
+
+    return {field: cast(str, data[field]).strip() for field in fields}
+
+
+def validate_answer_check(data: dict[str, object]) -> tuple[bool, str]:
+    is_correct = data.get("is_correct")
+    feedback = data.get("feedback")
+    if not isinstance(is_correct, bool) or not isinstance(feedback, str):
+        logger.error("JSON-ответ OpenAI не соответствует проверке ответа.")
+        raise OpenAIServiceError("Некорректная структура проверки ответа.")
+
+    feedback = feedback.strip()
+    if not feedback:
+        logger.error("OpenAI вернул пустой комментарий к ответу.")
+        raise OpenAIServiceError("Пустой комментарий к ответу.")
+
+    return is_correct, feedback
 
 
 async def start_quiz(message: Message, state: FSMContext) -> None:
@@ -95,17 +128,19 @@ async def handle_quiz_topic(
             bot=callback.bot,
             chat_id=callback.message.chat.id,
         ):
-            question_data = await openai_service.chat_json(
-                [
-                    {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": build_quiz_prompt(
-                            topic["name"],
-                            topic["description"],
-                        ),
-                    },
-                ]
+            question_data = validate_question_data(
+                await openai_service.chat_json(
+                    [
+                        {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
+                        {
+                            "role": "user",
+                            "content": build_quiz_prompt(
+                                topic["name"],
+                                topic["description"],
+                            ),
+                        },
+                    ]
+                )
             )
     except OpenAIServiceError:
         await callback.message.answer(
@@ -115,7 +150,7 @@ async def handle_quiz_topic(
         )
         return
 
-    question = cast(str, question_data["question"])
+    question = question_data["question"]
     await state.update_data(
         question=question,
         correct_answer=question_data["correct_answer"],
@@ -146,10 +181,102 @@ async def handle_message_before_topic(message: Message) -> None:
     F.text,
     ~F.text.startswith("/"),
 )
-async def handle_quiz_answer_placeholder(message: Message) -> None:
+async def handle_quiz_answer(
+    message: Message,
+    state: FSMContext,
+    openai_service: OpenAIService,
+) -> None:
+    user_answer = message.text
+    if not user_answer:
+        return
+
+    data = await state.get_data()
+    required_fields = (
+        "topic_name",
+        "question",
+        "correct_answer",
+        "explanation",
+    )
+    if any(
+        not isinstance(data.get(field), str)
+        or not cast(str, data[field]).strip()
+        for field in required_fields
+    ):
+        logger.error("В FSM отсутствуют данные текущего вопроса.")
+        await state.clear()
+        await message.answer(
+            "Данные вопроса потеряны. Начните новый квиз командой /quiz."
+        )
+        return
+
+    topic_name = cast(str, data["topic_name"])
+    question = cast(str, data["question"])
+    correct_answer = cast(str, data["correct_answer"])
+    explanation = cast(str, data["explanation"])
+    score = int(data.get("score", 0))
+    questions_count = int(data.get("questions_count", 0))
+
+    try:
+        async with ChatActionSender.typing(
+            bot=message.bot,
+            chat_id=message.chat.id,
+        ):
+            is_correct, feedback = validate_answer_check(
+                await openai_service.chat_json(
+                    [
+                        {
+                            "role": "system",
+                            "content": QUIZ_ANSWER_CHECK_SYSTEM_PROMPT,
+                        },
+                        {
+                            "role": "user",
+                            "content": build_quiz_answer_check_prompt(
+                                topic_name=topic_name,
+                                question=question,
+                                correct_answer=correct_answer,
+                                user_answer=user_answer,
+                                explanation=explanation,
+                            ),
+                        },
+                    ]
+                )
+            )
+    except OpenAIServiceError:
+        await message.answer(
+            "Не удалось проверить ответ. Попробуйте отправить его ещё раз "
+            "немного позже.",
+            reply_markup=get_quiz_exit_keyboard(),
+        )
+        return
+
+    questions_count += 1
+    if is_correct:
+        score += 1
+
+    await state.update_data(
+        score=score,
+        questions_count=questions_count,
+    )
+    await state.set_state(QuizStates.viewing_result)
+
+    if is_correct:
+        result_text = (
+            "✅ Правильно!\n\n"
+            f"Комментарий: {feedback}\n\n"
+            f"Правильный ответ: {correct_answer}\n\n"
+            f"Счёт: {score}/{questions_count}"
+        )
+    else:
+        result_text = (
+            "❌ Неправильно.\n\n"
+            f"Комментарий: {feedback}\n\n"
+            f"Правильный ответ: {correct_answer}\n\n"
+            f"Объяснение: {explanation}\n\n"
+            f"Счёт: {score}/{questions_count}"
+        )
+
     await message.answer(
-        "Ответ получен. Проверку ответа мы добавим на следующем этапе "
-        "разработки.",
+        result_text,
         reply_markup=get_quiz_exit_keyboard(),
     )
 
@@ -158,5 +285,17 @@ async def handle_quiz_answer_placeholder(message: Message) -> None:
 async def handle_quiz_non_text_answer(message: Message) -> None:
     await message.answer(
         "Ответ на вопрос нужно отправить текстом.",
+        reply_markup=get_quiz_exit_keyboard(),
+    )
+
+
+@router.message(
+    QuizStates.viewing_result,
+    F.text,
+    ~F.text.startswith("/"),
+)
+async def handle_text_after_quiz_result(message: Message) -> None:
+    await message.answer(
+        "Ответ уже проверен. Завершите квиз или дождитесь следующих действий.",
         reply_markup=get_quiz_exit_keyboard(),
     )

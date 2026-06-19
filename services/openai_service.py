@@ -93,15 +93,10 @@ class OpenAIService:
                 "OpenAI вернул некорректный JSON."
             ) from error
 
-        required_fields = ("question", "correct_answer", "explanation")
-        if not isinstance(data, dict) or any(
-            not isinstance(data.get(field), str)
-            or not data[field].strip()
-            for field in required_fields
-        ):
-            logger.error("JSON-ответ OpenAI не соответствует структуре квиза.")
+        if not isinstance(data, dict):
+            logger.error("JSON-ответ OpenAI не является объектом.")
             raise OpenAIServiceError(
-                "JSON-ответ OpenAI не соответствует ожидаемой структуре."
+                "JSON-ответ OpenAI не является объектом."
             )
 
         return data
