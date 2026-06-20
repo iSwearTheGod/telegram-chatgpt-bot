@@ -13,6 +13,7 @@ from handlers.random_fact import router as random_fact_router
 from handlers.resume import router as resume_router
 from handlers.talk import router as talk_router
 from handlers.translator import router as translator_router
+from handlers.vision import router as vision_router
 from services.openai_service import OpenAIService
 
 
@@ -29,6 +30,7 @@ async def set_bot_commands(bot: Bot) -> None:
         BotCommand(command="quiz", description="Начать квиз"),
         BotCommand(command="translate", description="Перевести текст"),
         BotCommand(command="resume", description="Создать шаблон резюме"),
+        BotCommand(command="vision", description="Распознать изображение"),
     ]
     await bot.set_my_commands(commands)
 
@@ -41,6 +43,7 @@ async def main() -> None:
         api_key=config.openai_api_key,
         model=config.openai_model,
     )
+    dispatcher.include_router(vision_router)
     dispatcher.include_router(resume_router)
     dispatcher.include_router(translator_router)
     dispatcher.include_router(quiz_router)

@@ -3,7 +3,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from keyboards.main_menu import UNAVAILABLE_MENU_BUTTON_TEXTS, main_menu
+from keyboards.main_menu import main_menu
 
 
 router = Router(name=__name__)
@@ -44,7 +44,8 @@ async def handle_help(message: Message) -> None:
         "/talk — поговорить с известной личностью\n"
         "/quiz — начать квиз\n"
         "/translate — перевести текст\n"
-        "/resume — создать шаблон резюме\n\n"
+        "/resume — создать шаблон резюме\n"
+        "/vision — распознать изображение\n\n"
         "Новые функции добавляются постепенно.",
         reply_markup=main_menu,
     )
@@ -59,8 +60,3 @@ async def handle_finish(
     await state.clear()
     if isinstance(callback.message, Message):
         await show_main_menu(callback.message)
-
-
-@router.message(F.text.in_(UNAVAILABLE_MENU_BUTTON_TEXTS))
-async def handle_unavailable_menu_action(message: Message) -> None:
-    await message.answer("Эта функция пока находится в разработке.")

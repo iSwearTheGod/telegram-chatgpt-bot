@@ -4,6 +4,7 @@ from keyboards.quiz import QUIZ_BUTTON_TEXT
 from keyboards.resume import RESUME_BUTTON_TEXT
 from keyboards.talk import TALK_BUTTON_TEXT
 from keyboards.translator import TRANSLATOR_BUTTON_TEXT
+from keyboards.vision import VISION_BUTTON_TEXT
 
 
 RANDOM_FACT_BUTTON_TEXT = "🎲 Случайный факт"
@@ -16,10 +17,8 @@ MENU_BUTTON_TEXTS = (
     QUIZ_BUTTON_TEXT,
     TRANSLATOR_BUTTON_TEXT,
     RESUME_BUTTON_TEXT,
-    "🖼 Распознать изображение",
+    VISION_BUTTON_TEXT,
 )
-
-UNAVAILABLE_MENU_BUTTON_TEXTS = MENU_BUTTON_TEXTS[6:]
 
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
