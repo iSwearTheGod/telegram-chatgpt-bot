@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 
@@ -5,6 +6,11 @@ from openai import AsyncOpenAI, OpenAIError
 
 
 logger = logging.getLogger(__name__)
+
+SUPPORTED_IMAGE_MIME_TYPES = frozenset(
+    {"image/jpeg", "image/png", "image/webp"}
+)
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 
 
 class OpenAIServiceError(Exception):
@@ -27,6 +33,61 @@ class OpenAIService:
                 {"role": "user", "content": user_prompt},
             ]
         )
+
+    async def analyze_image(
+        self,
+        image_bytes: bytes,
+        mime_type: str,
+        prompt: str,
+    ) -> str:
+        if not image_bytes:
+            raise OpenAIServiceError("Получено пустое изображение.")
+        if mime_type not in SUPPORTED_IMAGE_MIME_TYPES:
+            raise OpenAIServiceError("Неподдерживаемый формат изображения.")
+        if len(image_bytes) > MAX_IMAGE_SIZE_BYTES:
+            raise OpenAIServiceError("Изображение превышает допустимый размер.")
+
+        encoded_image = base64.b64encode(image_bytes).decode("ascii")
+        data_url = f"data:{mime_type};base64,{encoded_image}"
+
+        try:
+            response = await self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Опиши содержимое этого изображения.",
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": data_url},
+                            },
+                        ],
+                    },
+                ],
+                timeout=60.0,
+            )
+        except OpenAIError as error:
+            logger.error(
+                "Ошибка анализа изображения через OpenAI: %s",
+                type(error).__name__,
+            )
+            raise OpenAIServiceError(
+                "Не удалось проанализировать изображение."
+            ) from error
+
+        if not response.choices:
+            raise OpenAIServiceError("OpenAI вернул ответ без вариантов.")
+
+        content = response.choices[0].message.content
+        if not content or not content.strip():
+            raise OpenAIServiceError("OpenAI вернул пустой ответ.")
+
+        return content.strip()
 
     async def chat(self, messages: list[dict[str, str]]) -> str:
         request_messages = [message.copy() for message in messages]
