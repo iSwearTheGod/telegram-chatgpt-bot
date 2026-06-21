@@ -1,7 +1,131 @@
 # Telegram ChatGPT Bot
 
-An educational Telegram bot project planned to integrate Telegram with the OpenAI API.
+Учебный Telegram-бот на Python и aiogram, использующий OpenAI API для
+текстовых и мультимодальных сценариев. Проект объединяет несколько режимов
+работы с единым меню и состояниями FSM.
 
-The project is currently in development. Planned technologies include Python, aiogram, and the OpenAI API.
+## Возможности
 
-Keep API keys and bot tokens in a local `.env` file. Never commit secrets to the repository.
+- получение случайного познавательного факта;
+- GPT-чат с сохранением контекста текущего диалога;
+- диалог с выбранной известной личностью;
+- тематический квиз с проверкой ответов и подсчётом очков;
+- перевод текста на выбранный язык;
+- пошаговое создание текстового шаблона резюме;
+- распознавание и описание изображений.
+
+## Команды
+
+| Команда | Назначение |
+| --- | --- |
+| `/start` | Открыть главное меню и сбросить текущий режим |
+| `/help` | Показать справку по командам |
+| `/random` | Получить случайный факт |
+| `/gpt` | Начать диалог с GPT |
+| `/talk` | Выбрать известную личность для диалога |
+| `/quiz` | Запустить тематический квиз |
+| `/translate` | Перевести текст |
+| `/resume` | Создать шаблон резюме |
+| `/vision` | Распознать содержимое изображения |
+
+## Технологии
+
+- Python 3.13;
+- aiogram 3;
+- OpenAI Python SDK;
+- python-dotenv;
+- FSM MemoryStorage;
+- unittest;
+- Ruff.
+
+## Структура проекта
+
+```text
+telegram-chatgpt-bot/
+├── assets/              # заставки режимов
+├── handlers/            # обработчики команд и сообщений
+├── keyboards/           # reply- и inline-клавиатуры
+├── services/            # работа с OpenAI API
+├── states/              # состояния FSM
+├── tests/               # автоматические тесты
+├── utils/               # общие вспомогательные функции
+├── screenshots/         # будет добавлен вручную перед сдачей
+├── .env.example         # пример переменных окружения
+├── main.py              # точка входа
+├── prompts.py           # системные промпты
+├── pyproject.toml       # настройки Ruff
+├── requirements.txt     # runtime-зависимости
+└── requirements-dev.txt # инструменты разработки
+```
+
+Папка `screenshots` в репозитории пока не создана.
+
+## Установка
+
+```powershell
+git clone https://github.com/iSwearTheGod/telegram-chatgpt-bot.git
+cd telegram-chatgpt-bot
+python -m venv .venv
+.venv\Scripts\activate
+python -m pip install -r requirements.txt
+```
+
+В Linux и macOS виртуальное окружение активируется командой:
+
+```bash
+source .venv/bin/activate
+```
+
+## Настройка переменных окружения
+
+1. Скопируйте `.env.example` в `.env`.
+2. Заполните переменные `TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY` и
+   `OPENAI_MODEL`.
+3. Не публикуйте `.env` и не добавляйте его в Git.
+
+Пример файла уже содержит только безопасные значения-заглушки.
+
+## Запуск
+
+```powershell
+python main.py
+```
+
+Бот работает через long polling. После запуска откройте чат с ботом и
+отправьте `/start`.
+
+## Проверки
+
+Установите dev-зависимости:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+```
+
+Запустите автоматические тесты и проверку кода:
+
+```powershell
+python -m unittest discover -s tests -v
+ruff check .
+```
+
+Тесты не обращаются к Telegram API или OpenAI API и не требуют настоящих
+токенов.
+
+## Хранение данных
+
+Состояния пользователей и история текущих диалогов хранятся в оперативной
+памяти через `MemoryStorage`. После перезапуска приложения эти данные
+сбрасываются. База данных в учебной версии не используется.
+
+## Скриншоты
+
+Скриншоты работы бота будут добавлены перед сдачей проекта.
+
+## Безопасность
+
+- секреты хранятся только в локальном `.env`;
+- `.env` добавлен в `.gitignore`;
+- пользовательские изображения анализируются в памяти и не сохраняются на
+  диске;
+- токены и пользовательские данные не должны добавляться в репозиторий.
