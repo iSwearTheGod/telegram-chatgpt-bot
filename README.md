@@ -120,7 +120,37 @@ ruff check .
 
 ## Скриншоты
 
-Скриншоты работы бота будут добавлены перед сдачей проекта.
+### Главное меню
+
+![Главное меню](screenshots/01_main_menu.png)
+
+### Случайный факт
+
+![Случайный факт](screenshots/02_random_fact.png)
+
+### ChatGPT-интерфейс
+
+![ChatGPT-интерфейс](screenshots/03_gpt_chat.png)
+
+### Диалог с известной личностью
+
+![Диалог с известной личностью](screenshots/04_person_talk.png)
+
+### Квиз
+
+![Квиз](screenshots/05_quiz.png)
+
+### Переводчик
+
+![Переводчик](screenshots/06_translator.png)
+
+### Помощь с резюме
+
+![Помощь с резюме](screenshots/07_resume.png)
+
+### Распознавание изображений
+
+![Распознавание изображений](screenshots/08_vision.png)
 
 ## Безопасность
 
