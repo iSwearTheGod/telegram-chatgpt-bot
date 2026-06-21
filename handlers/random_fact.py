@@ -12,7 +12,6 @@ from keyboards.random_fact import get_random_fact_keyboard
 from prompts import RANDOM_FACT_SYSTEM_PROMPT
 from services.openai_service import OpenAIService, OpenAIServiceError
 
-
 logger = logging.getLogger(__name__)
 router = Router(name=__name__)
 

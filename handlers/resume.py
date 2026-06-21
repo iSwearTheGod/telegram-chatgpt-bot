@@ -18,7 +18,6 @@ from services.openai_service import OpenAIService, OpenAIServiceError
 from states.resume import ResumeStates
 from utils.messages import split_message
 
-
 logger = logging.getLogger(__name__)
 router = Router(name=__name__)
 

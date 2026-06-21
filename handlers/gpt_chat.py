@@ -15,7 +15,6 @@ from services.openai_service import OpenAIService, OpenAIServiceError
 from states.gpt_chat import GPTChatStates
 from utils.messages import split_message
 
-
 logger = logging.getLogger(__name__)
 router = Router(name=__name__)
 

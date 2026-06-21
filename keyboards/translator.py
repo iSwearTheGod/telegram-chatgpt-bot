@@ -1,6 +1,5 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-
 TRANSLATOR_BUTTON_TEXT = "🌐 Переводчик"
 
 

@@ -1,6 +1,5 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-
 VISION_BUTTON_TEXT = "🖼 Распознать изображение"
 
 

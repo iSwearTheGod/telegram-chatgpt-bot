@@ -19,7 +19,6 @@ from states.translator import TranslatorStates
 from translator_data import TRANSLATION_LANGUAGES
 from utils.messages import split_message
 
-
 logger = logging.getLogger(__name__)
 router = Router(name=__name__)
 

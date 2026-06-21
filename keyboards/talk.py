@@ -1,6 +1,5 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-
 TALK_BUTTON_TEXT = "🎭 Поговорить"
 
 

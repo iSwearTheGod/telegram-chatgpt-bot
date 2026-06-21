@@ -20,7 +20,6 @@ from services.openai_service import (
 from states.vision import VisionStates
 from utils.messages import split_message
 
-
 logger = logging.getLogger(__name__)
 router = Router(name=__name__)
 

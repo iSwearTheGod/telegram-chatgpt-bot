@@ -5,7 +5,6 @@ from aiogram.types import CallbackQuery, Message
 
 from keyboards.main_menu import main_menu
 
-
 router = Router(name=__name__)
 
 

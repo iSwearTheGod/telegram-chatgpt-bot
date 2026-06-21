@@ -1,6 +1,5 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-
 RESUME_BUTTON_TEXT = "📄 Помощь с резюме"
 
 
