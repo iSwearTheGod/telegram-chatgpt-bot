@@ -25,7 +25,6 @@ from quiz_data import QUIZ_TOPICS
 from services.openai_service import OpenAIService, OpenAIServiceError
 from states.quiz import QuizStates
 
-
 logger = logging.getLogger(__name__)
 router = Router(name=__name__)
 
@@ -172,7 +171,8 @@ async def handle_quiz_topic(
     await state.set_state(QuizStates.waiting_for_answer)
 
     await callback.message.answer(
-        f"{question}\n\nСледующее текстовое сообщение будет считаться ответом.",
+        f"{question}\n\n"
+        "Следующее текстовое сообщение будет считаться ответом.",
         reply_markup=get_quiz_exit_keyboard(),
     )
 

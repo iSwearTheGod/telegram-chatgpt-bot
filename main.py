@@ -7,6 +7,7 @@ from aiogram.types import BotCommand
 
 from config import load_config
 from handlers.common import router as common_router
+from handlers.errors import handle_unexpected_error
 from handlers.gpt_chat import router as gpt_chat_router
 from handlers.quiz import router as quiz_router
 from handlers.random_fact import router as random_fact_router
@@ -39,6 +40,7 @@ async def main() -> None:
     config = load_config()
     bot = Bot(token=config.telegram_bot_token)
     dispatcher = Dispatcher(storage=MemoryStorage())
+    dispatcher.errors.register(handle_unexpected_error)
     dispatcher["openai_service"] = OpenAIService(
         api_key=config.openai_api_key,
         model=config.openai_model,

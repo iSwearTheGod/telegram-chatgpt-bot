@@ -4,7 +4,6 @@ import logging
 
 from openai import AsyncOpenAI, OpenAIError
 
-
 logger = logging.getLogger(__name__)
 
 SUPPORTED_IMAGE_MIME_TYPES = frozenset(
@@ -45,7 +44,9 @@ class OpenAIService:
         if mime_type not in SUPPORTED_IMAGE_MIME_TYPES:
             raise OpenAIServiceError("Неподдерживаемый формат изображения.")
         if len(image_bytes) > MAX_IMAGE_SIZE_BYTES:
-            raise OpenAIServiceError("Изображение превышает допустимый размер.")
+            raise OpenAIServiceError(
+                "Изображение превышает допустимый размер."
+            )
 
         encoded_image = base64.b64encode(image_bytes).decode("ascii")
         data_url = f"data:{mime_type};base64,{encoded_image}"

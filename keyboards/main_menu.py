@@ -6,7 +6,6 @@ from keyboards.talk import TALK_BUTTON_TEXT
 from keyboards.translator import TRANSLATOR_BUTTON_TEXT
 from keyboards.vision import VISION_BUTTON_TEXT
 
-
 RANDOM_FACT_BUTTON_TEXT = "🎲 Случайный факт"
 GPT_CHAT_BUTTON_TEXT = "💬 Спросить GPT"
 

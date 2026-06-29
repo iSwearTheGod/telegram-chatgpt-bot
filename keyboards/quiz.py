@@ -1,6 +1,5 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-
 QUIZ_BUTTON_TEXT = "🧠 Квиз"
 
 
